@@ -149,6 +149,7 @@ struct EchoConnection {
 impl EchoConnection {
     /// Create a new instance representing WebSocket connection
     async fn new(worker_manager: &WorkerManager) -> Result<Self, String> {
+        println!("create mediasoup worker");
         let worker = worker_manager
             .create_worker({
                 let mut settings = WorkerSettings::default();
@@ -168,7 +169,7 @@ impl EchoConnection {
                     WorkerLogTag::Sctp,
                     WorkerLogTag::Message,
                 ];
-
+                settings.rtc_port_range = 50000..=59999;
                 settings
             })
             .await
@@ -490,7 +491,7 @@ async fn main() -> std::io::Result<()> {
             .route("/ws", web::get().to(ws_index))
     })
     // 2 threads is plenty for this example, default is to have as many threads as CPU cores
-    .workers(2)
+    .workers(1)
     .bind("127.0.0.1:3000")?
     .run()
     .await

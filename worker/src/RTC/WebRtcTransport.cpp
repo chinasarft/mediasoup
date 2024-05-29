@@ -11,6 +11,7 @@
 
 namespace RTC
 {
+	void sendToWireshark(RTC::TransportTuple* tuple, const uint8_t* data, size_t len, bool isRecv);
 	/* Static. */
 
 	static constexpr uint16_t IceCandidateDefaultLocalPriority{ 10000 };
@@ -801,6 +802,7 @@ namespace RTC
 			return;
 		}
 
+		sendToWireshark(this->iceServer->GetSelectedTuple(), data, len, false);
 		if (!this->srtpSendSession->EncryptRtcp(&data, &len))
 		{
 			return;
@@ -1079,6 +1081,7 @@ namespace RTC
 			return;
 		}
 
+		sendToWireshark(tuple, data, len, true);
 		RTC::RTCP::Packet* packet = RTC::RTCP::Packet::Parse(data, len);
 
 		if (!packet)
@@ -1428,5 +1431,54 @@ namespace RTC
 
 		// Pass it to the parent transport.
 		RTC::Transport::ReceiveSctpData(data, len);
+	}
+
+	void sendToWireshark(RTC::TransportTuple* tuple, const uint8_t* data, size_t len, bool isRecv) {
+		static struct sockaddr_in server_addr;
+		static int sock = -1;
+		static uint32_t count = 0;
+		const char* dest_ip = "127.0.0.1";
+		if ( sock == -1 ) {
+			sock = socket(AF_INET, SOCK_DGRAM, 0);
+			assert(sock > 0);
+
+			memset(&server_addr, 0, sizeof(server_addr));
+			server_addr.sin_family = AF_INET;
+		}
+
+		const struct sockaddr* addr =  tuple->GetLocalAddress();
+		in_port_t dest_port = 0;
+		switch (addr->sa_family)
+		{
+			case AF_INET:
+			{
+				const auto* addrin = reinterpret_cast<const struct sockaddr_in*>(addr);
+				dest_port    = addrin->sin_port;//ntohs(addrin->sin_port);
+				break;
+			}
+
+			case AF_INET6:
+			{
+				const auto* addrin6 = reinterpret_cast<const struct sockaddr_in6*>(addr);
+				dest_port = addrin6->sin6_port;//ntohs(addrin6->sin6_port);
+				break;
+			}
+		}
+
+		assert(dest_port != 0);
+		if (isRecv)
+			server_addr.sin_port = dest_port - 0x1027;//htons(dest_port);
+		else
+			server_addr.sin_port = dest_port - 0x0F27;//htons(dest_port);
+		inet_pton(AF_INET, dest_ip, &server_addr.sin_addr);
+
+
+		int ret = sendto(sock, data, len, 0, (struct sockaddr*)&server_addr, sizeof(server_addr));
+		assert(ret > 0);
+		++count;
+		if (count % 50 == 0) {
+			printf("forward rtcp:%d %d\n",count, ntohs(server_addr.sin_port));
+		}
+
 	}
 } // namespace RTC

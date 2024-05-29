@@ -136,11 +136,13 @@ fn main() {
         panic!("Failed to install Python invoke package")
     }
 
+    println!("pythonpath:{}", pythonpath);
     // Build
     if !Command::new(&python)
         .arg("-m")
         .arg("invoke")
         .arg("libmediasoup-worker")
+        //.arg("test")
         .env("PYTHONPATH", &pythonpath)
         .env("MEDIASOUP_OUT_DIR", &mediasoup_out_dir)
         .env("MEDIASOUP_BUILDTYPE", build_type)
