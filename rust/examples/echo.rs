@@ -185,7 +185,12 @@ impl EchoConnection {
         let transport_options =
             WebRtcTransportOptions::new(WebRtcTransportListenInfos::new(ListenInfo {
                 protocol: Protocol::Udp,
+                #[cfg(target_os = "linux")]
+                ip: IpAddr::V4(Ipv4Addr::new(192, 168, 82, 233)),
+
+                #[cfg(not(target_os = "linux"))]
                 ip: IpAddr::V4(Ipv4Addr::LOCALHOST),
+
                 announced_address: None,
                 port: None,
                 port_range: None,
